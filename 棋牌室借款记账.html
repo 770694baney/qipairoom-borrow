@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>棋牌室借款记账</title>
+  <!-- PWA配置 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="借款记账">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+    }
+    .card-shadow {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: all 0.3s ease;
+    }
+    .card-shadow:hover {
+      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in {
+      animation: slideIn 0.3s ease-in-out;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+    .success-animation {
+      animation: success 0.5s ease-in-out;
+    }
+    @keyframes success {
+      0% { transform: scale(0.8); }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+    /* 移动端触摸优化 */
+    @media (max-width: 640px) {
+      .card-shadow {
+        padding: 1rem;
+      }
+      button {
+        min-height: 44px;
+        touch-action: manipulation;
+      }
+      input {
+        min-height: 44px;
+        touch-action: manipulation;
+      }
+      .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+    }
+    /* 触摸反馈 */
+    .touch-feedback {
+      transition: transform 0.1s ease;
+    }
+    .touch-feedback:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<!-- Header -->
+<header class="bg-indigo-600 text-white p-4 shadow-md sticky top-0 z-10">
+  <div class="container mx-auto flex justify-between items-center">
+    <h1 class="text-xl font-bold"><i class="fas fa-coins mr-2"></i>棋牌室借款记账</h1>
+    <div class="flex space-x-2">
+      <button id="copyStatusBtn" class="bg-white text-indigo-600 px-4 py-2 rounded-full hover:bg-indigo-700 transition duration-200">
+        <i class="fas fa-calculator mr-1"></i>合计
+      </button>
+      <button id="addBorrowerBtn" class="bg-white text-indigo-600 px-4 py-2 rounded-full hover:bg-indigo-700 transition duration-200">
+        <i class="fas fa-user-plus mr-1"></i>新增借款人
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main class="container mx-auto p-4 space-y-6">
+  <!-- Borrower List -->
+  <section id="borrowersList" class="space-y-4">
+    <!-- 动态加载借款人卡片 -->
+  </section>
+</main>
+
+<!-- Add Borrower Modal -->
+<div id="addBorrowerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-start pt-20 z-20 fade-in">
+  <div class="bg-white w-11/12 max-w-md rounded-lg card-shadow p-6 relative">
+    <span class="absolute top-4 right-4 text-gray-500 cursor-pointer text-2xl" onclick="closeAddBorrower()">&times;</span>
+    <h2 class="text-lg font-semibold mb-4">新增借款人</h2>
+    <input type="text" id="newBorrowerName" placeholder="请输入姓名" class="w-full border border-gray-300 rounded p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+    <button onclick="saveNewBorrower()" class="w-full bg-indigo-600 text-white py-3 rounded hover:bg-indigo-700 transition duration-200">保存</button>
+  </div>
+</div>
+
+<!-- Record Detail Modal -->
+<div id="recordDetailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-start pt-20 z-20 overflow-y-auto pb-10 fade-in">
+  <div class="bg-white w-11/12 max-w-md rounded-lg card-shadow p-6 mt-10">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-semibold" id="modalTitle">借款详情</h2>
+      <span class="text-gray-500 cursor-pointer text-2xl" onclick="closeRecordDetail()">&times;</span>
+    </div>
+    <div class="grid grid-cols-2 gap-4 mb-2">
+      <div>
+        <label class="block text-sm font-medium mb-1">借款日期：</label>
+        <input type="date" id="recordDate" class="w-full border border-gray-300 rounded p-2">
+        <button onclick="deleteBorrowerFromDetail()" class="mt-2 px-3 py-2 h-8 bg-gray-600 text-white rounded hover:bg-gray-700 transition duration-200 whitespace-nowrap text-sm flex items-center">
+          <i class="fas fa-trash-alt mr-1"></i>删除借款人
+        </button>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">金额(元)：</label>
+        <input type="number" id="recordAmount" placeholder="借款为正数，还款为负数" class="w-full border border-gray-300 rounded p-2">
+        <div class="mt-2 flex justify-end space-x-2">
+          <button onclick="deleteCurrentRecord()" class="px-3 py-2 h-8 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200 whitespace-nowrap text-sm flex items-center">
+            清空记录
+          </button>
+          <button onclick="saveRecord()" class="px-3 py-2 h-8 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition duration-200 whitespace-nowrap text-sm flex items-center">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Records Table -->
+    <div class="mt-6">
+      <h3 class="font-medium mb-2">借款记录</h3>
+      <table class="w-full text-left text-sm">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="p-2">日期</th>
+            <th class="p-2">类型</th>
+            <th class="p-2">金额</th>
+            <th class="p-2">操作</th>
+          </tr>
+        </thead>
+        <tbody id="recordsTableBody">
+          <!-- 动态填充记录 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 初始化数据结构
+  let borrowers = loadBorrowersFromStorage();
+
+  // 从本地存储加载数据
+  function loadBorrowersFromStorage() {
+    try {
+      const data = localStorage.getItem('borrowers');
+      if (!data) {
+        return [];
+      }
+      const parsedData = JSON.parse(data);
+      // 验证数据结构
+      if (!Array.isArray(parsedData)) {
+        console.error('数据结构错误，期望数组');
+        return [];
+      }
+      // 验证每个借款人对象的结构
+      return parsedData.map(item => {
+        if (!item.name || !Array.isArray(item.records)) {
+          console.error('借款人数据结构错误:', item);
+          return { name: item.name || '未知', records: [] };
+        }
+        return item;
+      });
+    } catch (error) {
+      console.error('加载数据时出错:', error);
+      return [];
+    }
+  }
+
+  // 防抖函数 - 兼容不同浏览器
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  // 保存数据到本地存储（防抖版）
+  const saveBorrowersToStorage = debounce(() => {
+    try {
+      localStorage.setItem('borrowers', JSON.stringify(borrowers));
+      return true;
+    } catch (error) {
+      console.error('保存数据时出错:', error);
+      return false;
+    }
+  }, 300);
+
+  // 页面加载完成后渲染列表
+  document.addEventListener('DOMContentLoaded', () => {
+    renderBorrowers();
+  });
+
+  // 渲染借款人列表
+  function renderBorrowers() {
+    const container = document.getElementById('borrowersList');
+    container.innerHTML = '';
+    if (borrowers.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-10 text-gray-500">
+          <i class="fas fa-users-slash text-4xl mb-3"></i>
+          <p>暂无借款人信息<br><small>请点击右上角添加</small></p>
+        </div>`;
+      return;
+    }
+    borrowers.forEach((person, index) => {
+      // 计算净欠款（正数为欠款，负数为多还）
+      const netDebt = person.records.reduce((sum, r) => {
+        try {
+          return sum + parseFloat(r.amount || 0);
+        } catch (error) {
+          console.error('计算金额时出错:', error);
+          return sum;
+        }
+      }, 0);
+      const displayDebt = Math.abs(netDebt).toFixed(2);
+      const card = document.createElement('div');
+      card.className = "bg-white rounded-lg card-shadow p-3 fade-in cursor-move";
+      card.draggable = true;
+      card.dataset.index = index;
+      card.innerHTML = `
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-bold text-base">${person.name}</h3>
+            <p class="text-gray-600 text-xs">当前状态：<span class="${netDebt >= 0 ? 'text-red-500' : 'text-green-500'} font-semibold">¥${displayDebt} ${netDebt >= 0 ? '未还' : '超还'}</span></p>
+          </div>
+          <div class="flex space-x-2">
+            <button onclick="openRecordDetail(${index})" class="text-blue-500 hover:text-blue-700">
+              <i class="fas fa-edit"></i>
+            </button>
+            <span class="text-gray-400 hover:text-gray-600"><i class="fas fa-grip-vertical"></i></span>
+          </div>
+        </div>
+      `;
+      // 添加拖拽事件监听器
+      // 使用事件委托，避免内存泄漏
+      // 一次性添加所有事件监听器
+      const addDragListeners = (element) => {
+        element.addEventListener('dragstart', handleDragStart);
+        element.addEventListener('dragover', handleDragOver);
+        element.addEventListener('dragleave', handleDragLeave);
+        element.addEventListener('drop', handleDrop);
+        element.addEventListener('dragend', handleDragEnd);
+      };
+      addDragListeners(card);
+      container.appendChild(card);
+    });
+  }
+
+  // 拖拽开始事件
+  let draggedElement = null;
+  function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('opacity-50', 'scale-105', 'shadow-lg');
+    this.style.zIndex = '1000';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+    // 更改光标样式
+    document.body.style.cursor = 'grabbing';
+  }
+
+  // 拖拽经过事件
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // 添加目标位置高亮效果
+    this.classList.add('bg-gray-100', 'ring-2', 'ring-indigo-300');
+    const draggedIndex = parseInt(draggedElement.dataset.index);
+    const targetIndex = parseInt(this.dataset.index);
+    if (draggedIndex !== targetIndex) {
+      const container = document.getElementById('borrowersList');
+      const children = Array.from(container.children);
+      const draggedElementIndex = children.indexOf(draggedElement);
+      const targetElementIndex = children.indexOf(this);
+      if (draggedElementIndex < targetElementIndex) {
+        container.insertBefore(draggedElement, this.nextSibling);
+      } else {
+        container.insertBefore(draggedElement, this);
+      }
+    }
+  }
+
+  // 拖拽离开事件
+  function handleDragLeave() {
+    this.classList.remove('bg-gray-100', 'ring-2', 'ring-indigo-300');
+  }
+
+  // 拖拽放置事件
+  function handleDrop(e) {
+    e.preventDefault();
+    // 移除所有临时样式
+    this.classList.remove('bg-gray-100', 'ring-2', 'ring-indigo-300');
+    draggedElement.classList.remove('opacity-50', 'scale-105', 'shadow-lg');
+    draggedElement.style.zIndex = '';
+    document.body.style.cursor = '';
+    // 更新数据顺序
+    const container = document.getElementById('borrowersList');
+    const cards = container.querySelectorAll('[data-index]');
+    const newOrder = Array.from(cards).map(card => {
+      const originalIndex = parseInt(card.dataset.index);
+      return borrowers[originalIndex];
+    });
+    borrowers = newOrder;
+    saveBorrowersToStorage();
+    // 重新渲染以更新索引
+    renderBorrowers();
+  }
+
+  // 添加拖拽结束事件
+  function handleDragEnd() {
+    this.classList.remove('opacity-50', 'scale-105', 'shadow-lg');
+    this.style.zIndex = '';
+    document.body.style.cursor = '';
+    // 清除所有目标位置的临时样式
+    const cards = document.querySelectorAll('#borrowersList [data-index]');
+    cards.forEach(card => {
+      card.classList.remove('bg-gray-100', 'ring-2', 'ring-indigo-300');
+    });
+  }
+
+  // 打开新增借款人弹窗
+  function openAddBorrower() {
+    document.getElementById('addBorrowerModal').classList.remove('hidden');
+  }
+
+  document.getElementById('addBorrowerBtn').addEventListener('click', openAddBorrower);
+  document.getElementById('copyStatusBtn').addEventListener('click', copyAllStatus);
+
+  // 显示合计并复制到剪贴板
+  function copyAllStatus() {
+    try {
+      if (borrowers.length === 0) {
+        alert('暂无借款人信息');
+        return;
+      }
+      
+      // 生成状态文本
+      let statusText = '棋牌室借款记账合计\n';
+      statusText += '==================\n';
+      statusText += new Date().toLocaleString('zh-CN') + '\n\n';
+      
+      // 生成HTML内容用于弹窗
+      let htmlContent = '<div class="space-y-2">';
+      
+      let count = 0;
+      borrowers.forEach((person, index) => {
+        // 计算净欠款（正数为欠款，负数为多还）
+        const netDebt = person.records.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+        
+        // 过滤掉未还金额为0的借款人
+        if (Math.abs(netDebt) < 0.01) {
+          return;
+        }
+        
+        count++;
+        const displayDebt = Math.abs(netDebt).toFixed(2);
+        const status = netDebt >= 0 ? '未还' : '超还';
+        const color = netDebt >= 0 ? '🔴' : '🟢';
+        
+        // 添加到文本
+        statusText += `${count}. ${person.name}\n`;
+        statusText += `   ${color} ${status}: ¥${displayDebt}\n\n`;
+        
+        // 添加到HTML
+        const statusClass = netDebt >= 0 ? 'text-red-500' : 'text-green-500';
+        htmlContent += `
+          <div class="flex justify-between items-center py-1 border-b border-gray-200">
+            <span>${count}. ${person.name}</span>
+            <span class="${statusClass} font-semibold">${status}: ¥${displayDebt}</span>
+          </div>
+        `;
+      });
+      
+      // 如果所有借款人的未还金额都为0
+      if (count === 0) {
+        htmlContent += `
+          <div class="text-center py-4 text-gray-500">
+            <i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
+            <p>所有借款人的未还金额都为0</p>
+          </div>
+        `;
+        statusText = '棋牌室借款记账合计\n';
+        statusText += '==================\n';
+        statusText += new Date().toLocaleString('zh-CN') + '\n\n';
+        statusText += '所有借款人的未还金额都为0\n\n';
+        statusText += '==================\n';
+        statusText += '总欠款: ¥0.00\n';
+      }
+      
+      // 计算总欠款
+      const totalDebt = borrowers.reduce((sum, person) => {
+        const personDebt = person.records.reduce((sum, r) => sum + parseFloat(r.amount), 0);
+        return sum + personDebt;
+      }, 0);
+      const displayTotalDebt = Math.abs(totalDebt).toFixed(2);
+      const totalStatus = totalDebt >= 0 ? '总欠款' : '总超还';
+      
+      // 添加总计到文本
+      statusText += '==================\n';
+      statusText += `${totalStatus}: ¥${displayTotalDebt}\n`;
+      
+      // 添加总计到HTML
+      const totalClass = totalDebt >= 0 ? 'text-red-600' : 'text-green-600';
+      htmlContent += `
+        <div class="mt-4 pt-2 border-t border-gray-300">
+          <div class="flex justify-between items-center font-bold ${totalClass}">
+            <span>总计</span>
+            <span>${totalStatus}: ¥${displayTotalDebt}</span>
+          </div>
+        </div>
+      `;
+      
+      htmlContent += '</div>';
+      
+      // 显示弹窗
+      showStatusModal(htmlContent, statusText);
+      
+    } catch (error) {
+      console.error('显示合计时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 显示状态弹窗
+  function showStatusModal(content, statusText) {
+    // 检查是否已存在弹窗
+    let modal = document.getElementById('statusModal');
+    if (modal) {
+      modal.remove();
+    }
+    
+    // 创建弹窗
+    modal = document.createElement('div');
+    modal.id = 'statusModal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white w-11/12 max-w-md rounded-lg card-shadow p-6 relative max-h-[80vh] overflow-y-auto">
+        <span class="absolute top-4 right-4 text-gray-500 cursor-pointer text-2xl" onclick="document.getElementById('statusModal').remove()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">借款记账合计</h2>
+        <div class="mb-6">${content}</div>
+        <div class="flex space-x-2">
+          <button onclick="copyTextToClipboard('${statusText.replace(/\n/g, '\\n')}'); document.getElementById('statusModal').remove()" 
+                  class="flex-1 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition duration-200 touch-feedback">
+            <i class="fas fa-copy mr-1"></i>复制到剪贴板
+          </button>
+          <button onclick="document.getElementById('statusModal').remove()" 
+                  class="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400 transition duration-200 touch-feedback">
+            <i class="fas fa-times mr-1"></i>关闭
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+  }
+
+  // 复制到剪贴板
+  function copyToClipboard(text) {
+    // 解码换行符
+    text = text.replace(/\\n/g, '\n');
+    
+    if (navigator.clipboard && window.isSecureContext) {
+      // 现代浏览器
+      navigator.clipboard.writeText(text).then(() => {
+        alert('已复制到剪贴板');
+      }).catch(err => {
+        console.error('复制失败:', err);
+        fallbackCopyTextToClipboard(text);
+      });
+    } else {
+      // 兼容性处理
+      fallbackCopyTextToClipboard(text);
+    }
+  }
+
+  // 复制文本到剪贴板
+  function copyTextToClipboard(text) {
+    try {
+      // 解码换行符
+      text = text.replace(/\n/g, '\n');
+      
+      if (navigator.clipboard && window.isSecureContext) {
+        // 现代浏览器
+        navigator.clipboard.writeText(text).then(() => {
+          alert('已复制到剪贴板');
+        }).catch(err => {
+          console.error('复制到剪贴板失败:', err);
+          fallbackCopyTextToClipboard(text);
+        });
+      } else {
+        // 兼容性处理
+        fallbackCopyTextToClipboard(text);
+      }
+    } catch (error) {
+      console.error('复制到剪贴板时出错:', error);
+      alert('复制失败，请重试');
+    }
+  }
+
+  // 兼容性复制函数
+  function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const successful = document.execCommand('copy');
+      const msg = successful ? '状态已复制到剪贴板' : '复制失败，请手动复制';
+      alert(msg);
+    } catch (err) {
+      console.error('fallback复制失败:', err);
+      alert('复制失败，请手动复制');
+    }
+    
+    document.body.removeChild(textArea);
+  }
+
+  // 关闭新增借款人弹窗
+  function closeAddBorrower() {
+    document.getElementById('addBorrowerModal').classList.add('hidden');
+    document.getElementById('newBorrowerName').value = '';
+  }
+
+  // 保存新借款人
+  function saveNewBorrower() {
+    try {
+      const nameInput = document.getElementById('newBorrowerName');
+      let name = nameInput.value.trim();
+      
+      // 输入验证
+      if (!name) {
+        alert("请输入有效的姓名");
+        return;
+      }
+      
+      // 防止XSS攻击，过滤特殊字符
+      name = name.replace(/[<>&"'\\]/g, (char) => {
+        const map = {
+          '<': '&lt;',
+          '>': '&gt;',
+          '&': '&amp;',
+          '"': '&quot;',
+          "'": '&#39;',
+          '\\': '&#92;'
+        };
+        return map[char];
+      });
+      
+      // 检查重名
+      if (borrowers.some(p => p.name === name)) {
+        alert("该借款人已存在！");
+        return;
+      }
+      
+      borrowers.push({ name, records: [] });
+      saveBorrowersToStorage();
+      renderBorrowers();
+      closeAddBorrower();
+    } catch (error) {
+      console.error('保存新借款人时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 删除借款人
+  function deleteBorrower(index) {
+    try {
+      if (index < 0 || index >= borrowers.length) {
+        alert('借款人不存在');
+        return;
+      }
+      if (confirm(`确定删除 "${borrowers[index].name}" 吗？`)) {
+        borrowers.splice(index, 1);
+        saveBorrowersToStorage();
+        renderBorrowers();
+      }
+    } catch (error) {
+      console.error('删除借款人时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 当前正在编辑的借款人索引
+  let currentEditIndex = null;
+  // 分页相关变量
+  let currentPage = 1;
+  const recordsPerPage = 5;
+
+  // 打开记录详情弹窗
+  function openRecordDetail(index) {
+    try {
+      if (index < 0 || index >= borrowers.length) {
+        console.error('无效的借款人索引:', index);
+        alert('借款人不存在');
+        return;
+      }
+      currentEditIndex = index;
+      const borrower = borrowers[index];
+      if (!borrower) {
+        console.error('借款人不存在:', index);
+        alert('借款人不存在');
+        return;
+      }
+      document.getElementById('modalTitle').textContent = `借款详情 - ${borrower.name}`;
+      loadRecordsIntoTable(borrower.records || []);
+      addBlankRecord(); // 初始化为空白记录
+      document.getElementById('recordDetailModal').classList.remove('hidden');
+    } catch (error) {
+      console.error('打开记录详情时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 加载记录到表格
+  function loadRecordsIntoTable(records) {
+    const tbody = document.getElementById('recordsTableBody');
+    tbody.innerHTML = '';
+    if (records.length === 0) {
+      tbody.innerHTML = `<tr><td colspan='4' class='text-center py-2 text-gray-500'>暂无记录</td></tr>`;
+      renderPaginationControls([]);
+      return;
+    }
+    // 直接使用原始顺序（新记录已通过unshift添加到开头）
+    const displayRecords = [...records];
+    // 计算分页信息
+    currentPage = 1; // 重置到第一页
+    const totalPages = Math.ceil(displayRecords.length / recordsPerPage);
+    // 显示当前页记录
+    const startIndex = (currentPage - 1) * recordsPerPage;
+    const endIndex = startIndex + recordsPerPage;
+    const currentPageRecords = displayRecords.slice(startIndex, endIndex);
+    currentPageRecords.forEach((r, i) => {
+      const amount = parseFloat(r.amount);
+      const type = amount > 0 ? '借款' : '还款';
+      const colorClass = amount > 0 ? 'text-red-500' : 'text-green-500';
+      const displayAmount = Math.abs(amount).toFixed(2);
+      // 计算原始索引（用于编辑和删除）
+      const originalIndex = records.findIndex(record => 
+        record.date === r.date && record.amount == r.amount
+      );
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2">${r.date}</td>
+        <td class="p-2">${type}</td>
+        <td class="p-2 ${colorClass}">¥${displayAmount}</td>
+        <td class="p-2">
+          <button onclick="editRecord(${originalIndex})" class="text-blue-500 hover:text-blue-700 mr-2"><i class="fas fa-pencil-alt"></i></button>
+          <button onclick="removeRecord(${originalIndex})" class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    // 渲染分页控件
+    renderPaginationControls(displayRecords);
+  }
+
+  // 渲染分页控件
+  function renderPaginationControls(records) {
+    const tableContainer = document.querySelector('#recordDetailModal table').parentElement;
+    // 移除旧的分页控件
+    const oldPagination = tableContainer.querySelector('.pagination');
+    if (oldPagination) {
+      oldPagination.remove();
+    }
+    if (records.length <= recordsPerPage) {
+      return; // 不需要分页
+    }
+    const totalPages = Math.ceil(records.length / recordsPerPage);
+    const pagination = document.createElement('div');
+    pagination.className = 'pagination flex justify-center mt-4 space-x-1';
+    // 上一页按钮
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `px-3 py-1 border rounded ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`;
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prevBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        changePage(currentPage - 1, records);
+      }
+    });
+    pagination.appendChild(prevBtn);
+    // 页码按钮
+    for (let i = 1; i <= totalPages; i++) {
+      const pageBtn = document.createElement('button');
+      pageBtn.className = `px-3 py-1 border rounded ${currentPage === i ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100'}`;
+      pageBtn.textContent = i;
+      pageBtn.addEventListener('click', () => {
+        changePage(i, records);
+      });
+      pagination.appendChild(pageBtn);
+    }
+    // 下一页按钮
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `px-3 py-1 border rounded ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}`;
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    nextBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        changePage(currentPage + 1, records);
+      }
+    });
+    pagination.appendChild(nextBtn);
+    tableContainer.appendChild(pagination);
+  }
+
+  // 切换页面
+  function changePage(page, records) {
+    const totalPages = Math.ceil(records.length / recordsPerPage);
+    if (page < 1 || page > totalPages) {
+      return;
+    }
+    currentPage = page;
+    const tbody = document.getElementById('recordsTableBody');
+    tbody.innerHTML = '';
+    // 显示当前页记录
+    const startIndex = (currentPage - 1) * recordsPerPage;
+    const endIndex = startIndex + recordsPerPage;
+    const currentPageRecords = records.slice(startIndex, endIndex);
+    currentPageRecords.forEach((r, i) => {
+      const amount = parseFloat(r.amount);
+      const type = amount > 0 ? '借款' : '还款';
+      const colorClass = amount > 0 ? 'text-red-500' : 'text-green-500';
+      const displayAmount = Math.abs(amount).toFixed(2);
+      // 计算原始索引（用于编辑和删除）
+      const originalIndex = borrowers[currentEditIndex].records.findIndex(record => 
+        record.date === r.date && record.amount == r.amount
+      );
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="p-2">${r.date}</td>
+        <td class="p-2">${type}</td>
+        <td class="p-2 ${colorClass}">¥${displayAmount}</td>
+        <td class="p-2">
+          <button onclick="editRecord(${originalIndex})" class="text-blue-500 hover:text-blue-700 mr-2"><i class="fas fa-pencil-alt"></i></button>
+          <button onclick="removeRecord(${originalIndex})" class="text-red-500 hover:text-red-700"><i class="fas fa-times"></i></button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+    // 更新分页控件
+    renderPaginationControls(records);
+  }
+
+  // 新增一条空白记录
+  function addBlankRecord() {
+    const dateField = document.getElementById('recordDate');
+    const amountField = document.getElementById('recordAmount');
+
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    dateField.value = today;
+    amountField.value = '';
+
+    // 设置焦点以便快速输入
+    setTimeout(() => amountField.focus(), 100);
+  }
+
+  // 编辑已有记录
+  function editRecord(recordIndex) {
+    const record = borrowers[currentEditIndex].records[recordIndex];
+    document.getElementById('recordDate').value = record.date;
+    document.getElementById('recordAmount').value = record.amount;
+  }
+
+  // 移除指定记录
+  function removeRecord(recordIndex) {
+    try {
+      if (currentEditIndex === null) return;
+      if (confirm("确定移除此条记录吗？")) {
+        borrowers[currentEditIndex].records.splice(recordIndex, 1);
+        saveBorrowersToStorage();
+        currentPage = 1; // 重置到第一页
+        loadRecordsIntoTable(borrowers[currentEditIndex].records);
+      }
+    } catch (error) {
+      console.error('移除记录时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 保存当前记录（新建或修改）
+  function saveRecord() {
+    try {
+      if (currentEditIndex === null) {
+        console.error('未选择借款人');
+        alert('未选择借款人');
+        return;
+      }
+      const date = document.getElementById('recordDate').value;
+      const amount = document.getElementById('recordAmount').value;
+
+      if (!date || !amount) {
+        alert("请填写日期和金额");
+        return;
+      }
+
+      // 验证日期格式
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        alert("请输入有效的日期格式");
+        return;
+      }
+
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount)) {
+        alert("请输入有效的金额数字");
+        return;
+      }
+
+      // 验证借款人存在
+      if (!borrowers[currentEditIndex]) {
+        console.error('借款人不存在:', currentEditIndex);
+        alert('借款人不存在');
+        return;
+      }
+
+      // 直接添加新记录，允许同一日期同一金额的多条记录存在
+      // 添加新记录到开头，确保最近添加的显示在最前面
+      borrowers[currentEditIndex].records.unshift({ date, amount: parsedAmount.toString() });
+
+      // 优化localStorage存储，减少频繁写入
+      saveBorrowersToStorage();
+      currentPage = 1; // 重置到第一页
+      loadRecordsIntoTable(borrowers[currentEditIndex].records);
+      addBlankRecord(); // 清空字段准备下次输入
+    } catch (error) {
+      console.error('保存记录时出错:', error);
+      alert('保存失败，请重试');
+    }
+  }
+
+  // 删除整个借款人的全部记录
+  function deleteCurrentRecord() {
+    try {
+      if (currentEditIndex === null) return;
+      if (confirm("这将清空此人所有的借款记录！\n是否继续？")) {
+        borrowers[currentEditIndex].records = [];
+        saveBorrowersToStorage();
+        currentPage = 1; // 重置到第一页
+        loadRecordsIntoTable([]);
+      }
+    } catch (error) {
+      console.error('清空记录时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 从编辑页面删除借款人
+  function deleteBorrowerFromDetail() {
+    try {
+      if (currentEditIndex === null) return;
+      const borrowerName = borrowers[currentEditIndex].name;
+      if (confirm(`确定删除 "${borrowerName}" 吗？\n此操作将删除该借款人的所有记录！`)) {
+        borrowers.splice(currentEditIndex, 1);
+        saveBorrowersToStorage();
+        closeRecordDetail();
+        renderBorrowers();
+      }
+    } catch (error) {
+      console.error('删除借款人时出错:', error);
+      alert('操作失败，请重试');
+    }
+  }
+
+  // 关闭记录详情弹窗
+  function closeRecordDetail() {
+    document.getElementById('recordDetailModal').classList.add('hidden');
+    currentEditIndex = null;
+    renderBorrowers(); // 更新主页统计数据
+  }
+
+  // 注册Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(registration => {
+          console.log('Service Worker 注册成功:', registration.scope);
+        })
+        .catch(error => {
+          console.log('Service Worker 注册失败:', error);
+        });
+    });
+  }
+</script>
+</body>
+</html>
